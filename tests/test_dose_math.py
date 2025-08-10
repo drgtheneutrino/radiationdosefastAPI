@@ -14,7 +14,7 @@ import pytest
 from decimal import Decimal
 
 from src.schemas import DoseRequest, Irradiation
-from src.services.dose_service import compute_effective_dose, DoseComputationError
+from src.services.dose_service import compute_effective_dose, compute_equivalent_dose, DoseComputationError
 from src.services.factors import neutron_wr
 
 
@@ -107,3 +107,15 @@ def test_invalid_custom_wr():
     )
     with pytest.raises(DoseComputationError):
         compute_effective_dose(req)
+
+def test_equivalent_dose_math_simple():
+    req = DoseRequest(
+        irradiation=[
+            Irradiation(tissue="colon", radiation="photon", absorbed_dose_Gy=0.003)
+        ]
+    )
+    resp = compute_equivalent_dose(req)
+    assert len(resp.by_tissue) == 1
+    row = resp.by_tissue[0]
+    assert row.tissue == "colon"
+    assert math.isclose(row.H_T_Sv, 0.003, rel_tol=1e-12)
