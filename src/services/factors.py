@@ -121,3 +121,10 @@ def neutron_wr(energy_MeV: float) -> float:
         return 5.0 + 17.0 * math.exp(- (lnE ** 2) / 6.0)
     else:
         return 2.5 + 3.25 * math.exp(- (math.log(0.04 * energy_MeV) ** 2) / 6.0)
+        
+def get_remainder_tissues_list():
+    """
+    Returns the list of the 14 remainder tissues per ICRP 103.
+    """
+    return list(_REMAINDER_TISSUES_LIST)
+
