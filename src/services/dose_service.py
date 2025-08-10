@@ -30,6 +30,8 @@ from src.schemas import (
     DoseResponse,
     TissueContribution,
     Irradiation,
+    EquivalentDoseResponse,   # add
+    TissueEquivalent,         # add
 )
 from src.services.factors import (
     get_tissue_factors,
@@ -146,49 +148,34 @@ def _quantize_float(x: Decimal) -> float:
     Any UI rounding should happen at presentation time.
     """
     return float(x)
-
-
-def compute_effective_dose(req: DoseRequest) -> DoseResponse:
+def _compute_H_by_tissue(req: DoseRequest) -> Dict[str, Decimal]:
     """
-    Compute H_T by tissue and total effective dose E for the given request.
-
-    Steps:
-    1. Validate and canonicalize tissue names.
-    2. Resolve w_R per entry.
-    3. Accumulate H_T per tissue as sum_R w_R * D_{T,R}.
-    4. Compute E as sum_T w_T * H_T.
-    5. Return detailed by-tissue contributions and total E.
-
-    Input units:
-        absorbed_dose_Gy is in gray.
-    Output units:
-        H_T in sievert.
-        E in sievert.
-        Since sievert equals gray times w_R for stochastic quantities, units match.
-
-    Raises:
-        DoseComputationError for invalid inputs.
+    Aggregate equivalent dose H_T by tissue:
+        H_T = sum_R w_R * D_{T,R}
     """
     if not req.irradiation:
         raise DoseComputationError("At least one irradiation entry is required.")
 
-    # Accumulator for H_T by tissue.
-    # Dict[tissue, Decimal sievert]
     H_by_tissue: Dict[str, Decimal] = {}
-
     for entry in req.irradiation:
-        # Pydantic already enforces absorbed_dose_Gy > 0, but we re-check to be explicit.
         if entry.absorbed_dose_Gy <= 0:
             raise DoseComputationError("absorbed_dose_Gy must be greater than zero.")
 
         tissue = _canonical_tissue(entry.tissue)
         w_r = _resolve_wr(entry)
-        D_T_R = Decimal(str(entry.absorbed_dose_Gy))  # gray
+        D_T_R = Decimal(str(entry.absorbed_dose_Gy))
 
-        H_increment = w_r * D_T_R  # sievert contribution for this radiation to this tissue
-        H_by_tissue[tissue] = H_by_tissue.get(tissue, Decimal("0")) + H_increment
+        H_by_tissue[tissue] = H_by_tissue.get(tissue, Decimal("0")) + (w_r * D_T_R)
 
-    # Compute contributions to E per tissue and total E.
+    return H_by_tissue
+
+
+def compute_effective_dose(req: DoseRequest) -> DoseResponse:
+    """
+    Compute by-tissue H_T and total effective dose E.
+    """
+    H_by_tissue = _compute_H_by_tissue(req)
+
     contributions = []
     E_total = Decimal("0")
 
@@ -206,10 +193,21 @@ def compute_effective_dose(req: DoseRequest) -> DoseResponse:
             )
         )
 
-    # Sort by descending contribution for easy reading.
     contributions.sort(key=lambda c: c.contribution_to_E_Sv, reverse=True)
 
     return DoseResponse(
         by_tissue=contributions,
         effective_dose_Sv=_quantize_float(E_total),
     )
+
+def compute_equivalent_dose(req: DoseRequest) -> EquivalentDoseResponse:
+    """
+    Compute by-tissue equivalent dose H_T (no w_T weighting).
+    """
+    H_by_tissue = _compute_H_by_tissue(req)
+    rows = [
+        TissueEquivalent(tissue=t, H_T_Sv=_quantize_float(H))
+        for t, H in H_by_tissue.items()
+    ]
+    rows.sort(key=lambda r: r.H_T_Sv, reverse=True)
+    return EquivalentDoseResponse(by_tissue=rows)
