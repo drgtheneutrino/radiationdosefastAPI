@@ -17,7 +17,9 @@ Swagger docs:
     http://127.0.0.1:8000/docs
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
+from fastapi.middleware.cors import CORSMiddleware  # <-- add this import
+
 from src.schemas import DoseRequest, DoseResponse
 from src.services.dose_service import compute_effective_dose, DoseComputationError
 from src.services.factors import get_tissue_factors, get_base_wr, neutron_wr
@@ -35,6 +37,13 @@ Notes:
 """,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # change to specific domains in production
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 @app.get("/health")
 def health() -> dict:
