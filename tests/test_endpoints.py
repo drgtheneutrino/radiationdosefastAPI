@@ -136,3 +136,21 @@ def test_effective_dose_invalid_tissue_returns_400():
     body = r.json()
     assert "detail" in body
     assert "Unknown tissue" in body["detail"]
+    
+def test_equivalent_dose_endpoint_simple():
+    """
+    Lung receives photons and protons. Check H_T aggregation without w_T.
+    """
+    payload = {
+        "irradiation": [
+            {"tissue": "lung", "radiation": "photon", "absorbed_dose_Gy": 0.01},
+            {"tissue": "lung", "radiation": "proton", "absorbed_dose_Gy": 0.005}  # w_R=2
+        ]
+    }
+    r = client.post("/v1/dose/equivalent", json=payload)
+    assert r.status_code == 200
+    data = r.json()
+    assert "by_tissue" in data and isinstance(data["by_tissue"], list)
+    # H_lung = 1*0.01 + 2*0.005 = 0.02 Sv
+    rows = {row["tissue"]: row for row in data["by_tissue"]}
+    assert math.isclose(rows["lung"]["H_T_Sv"], 0.02, rel_tol=1e-12)
