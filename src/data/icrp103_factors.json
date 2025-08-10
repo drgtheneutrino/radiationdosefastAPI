@@ -1,0 +1,70 @@
+{
+  "icrp_publication": "103",
+  "version": "1.0",
+  "units": {
+    "w_T": "dimensionless",
+    "w_R": "dimensionless",
+    "energy": "MeV"
+  },
+  "tissue_weighting_factors": {
+    "red_bone_marrow": 0.12,
+    "colon": 0.12,
+    "lung": 0.12,
+    "stomach": 0.12,
+    "breast": 0.12,
+    "remainder_tissues": 0.12,
+    "gonads": 0.08,
+    "bladder": 0.04,
+    "oesophagus": 0.04,
+    "liver": 0.04,
+    "thyroid": 0.04,
+    "bone_surface": 0.01,
+    "brain": 0.01,
+    "salivary_glands": 0.01,
+    "skin": 0.01
+  },
+  "remainder_tissues_list": [
+    "adrenals",
+    "extrathoracic_region",
+    "gall_bladder",
+    "heart",
+    "kidneys",
+    "lymphatic_nodes",
+    "muscle",
+    "oral_mucosa",
+    "pancreas",
+    "prostate_or_uterus_cervix",
+    "small_intestine",
+    "spleen",
+    "thymus",
+    "tonsils"
+  ],
+  "radiation_weighting_factors": {
+    "base": {
+      "photon": 1.0,
+      "electron": 1.0,
+      "muon": 1.0,
+      "proton": 2.0,
+      "pion": 2.0,
+      "alpha": 20.0,
+      "heavy_ion": 20.0
+    },
+    "neutron_wr_definition": {
+      "note": "Piecewise energy-dependent function w_R(E) per ICRP 103 with natural logarithms; E in MeV.",
+      "pieces": [
+        {
+          "range": "E < 1",
+          "expression": "w_R = 2.5 + 18.2 * exp(- (ln(E))^2 / 6)"
+        },
+        {
+          "range": "1 <= E <= 50",
+          "expression": "w_R = 5.0 + 17.0 * exp(- (ln(E))^2 / 6)"
+        },
+        {
+          "range": "E > 50",
+          "expression": "w_R = 2.5 + 3.25 * exp(- (ln(0.04*E))^2 / 6)"
+        }
+      ]
+    }
+  }
+}
