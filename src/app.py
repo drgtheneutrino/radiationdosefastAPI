@@ -69,8 +69,8 @@ def effective_dose(req: DoseRequest) -> DoseResponse:
 
 
 @app.post("/v1/dose/convert/neutron-wr")
-def neutron_wr_endpoint(energy_MeV: float) -> dict:
-    """
+def neutron_wr_endpoint(energy_MeV: float = Body(..., embed=True)) -> dict:
+      """
     Compute neutron radiation weighting factor w_R from neutron energy in MeV.
 
     Example:
@@ -79,6 +79,7 @@ def neutron_wr_endpoint(energy_MeV: float) -> dict:
             "energy_MeV": 2.0
         }
     """
+
     try:
         w_r = neutron_wr(float(energy_MeV))
     except ValueError as e:
