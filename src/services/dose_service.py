@@ -35,7 +35,9 @@ from src.services.factors import (
     get_tissue_factors,
     get_base_wr,
     neutron_wr,
+    get_remainder_tissues_list,  # new
 )
+
 
 # Set a reasonably high precision for Decimal to avoid accumulation errors.
 # We quantize only at the API boundary.
@@ -66,7 +68,10 @@ _TISSUE_ALIASES: Dict[str, str] = {
 # Build a quick lowercase map of canonical names to themselves for case-insensitive lookup.
 for _canon in list(_VALID_TISSUES):
     _TISSUE_ALIASES[_canon.replace("_", " ")] = _canon
-
+    
+for _r in get_remainder_tissues_list():
+    _TISSUE_ALIASES[_r] = "remainder_tissues"
+    _TISSUE_ALIASES[_r.replace("_", " ")] = "remainder_tissues"
 
 def _canonical_tissue(name: str) -> str:
     """
