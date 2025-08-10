@@ -9,7 +9,7 @@ description = "ICRP 103 based Radiation Dose Calculator API using FastAPI"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Daniel <Your Name Here>" }]
+authors = [{ name = "Daniel Gill" }]
 dependencies = [
   "fastapi>=0.111.0",
   "uvicorn[standard]>=0.30.0",
@@ -28,7 +28,8 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["src*"]
 
 [tool.pytest.ini_options]
 addopts = "-q"
