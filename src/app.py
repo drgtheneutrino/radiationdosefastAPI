@@ -20,8 +20,8 @@ Swagger docs:
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware  # <-- add this import
 
-from src.schemas import DoseRequest, DoseResponse
-from src.services.dose_service import compute_effective_dose, DoseComputationError
+from src.schemas import DoseRequest, DoseResponse,  EquivalentDoseResponse
+from src.services.dose_service import compute_effective_dose, compute_equivalent_dose, DoseComputationError
 from src.services.factors import get_tissue_factors, get_base_wr, neutron_wr
 
 # FastAPI app metadata
@@ -73,6 +73,16 @@ def effective_dose(req: DoseRequest) -> DoseResponse:
     """
     try:
         return compute_effective_dose(req)
+    except DoseComputationError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+@app.post("/v1/dose/equivalent", response_model=EquivalentDoseResponse)
+def equivalent_dose(req: DoseRequest) -> EquivalentDoseResponse:
+    """
+    Compute by-tissue equivalent dose H_T (Sv) without tissue weighting.
+    """
+    try:
+        return compute_equivalent_dose(req)
     except DoseComputationError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
