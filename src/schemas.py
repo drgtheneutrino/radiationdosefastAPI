@@ -105,3 +105,17 @@ class DoseResponse(BaseModel):
     """
     by_tissue: List[TissueContribution]
     effective_dose_Sv: float
+class TissueEquivalent(BaseModel):
+    """
+    Equivalent dose for a single tissue.
+    """
+    tissue: str
+    H_T_Sv: float
+
+
+class EquivalentDoseResponse(BaseModel):
+    """
+    Response for the equivalent dose endpoint.
+    """
+    by_tissue: List[TissueEquivalent]
+
