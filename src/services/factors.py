@@ -1,117 +1,109 @@
 """
 factors.py
 ----------
-Stores and provides ICRP 103 tissue weighting factors (w_T) and radiation weighting factors (w_R),
-including the energy-dependent formula for neutron weighting factors.
+ICRP 103 factor accessors backed by the repository JSON file at
+src/data/icrp103_factors.json, validated through src/models.py.
 
-References:
-- ICRP Publication 103, 2007. The 2007 Recommendations of the International Commission on Radiological Protection.
-- NCBI Bookshelf: "Tissue Weighting Factors" table and "Radiation Weighting Factors" section.
-- Neutron w_R formula per ICRP 103 piecewise definition.
+This module exposes:
+- get_tissue_factors() -> dict of w_T by tissue
+- get_base_wr() -> dict of non-neutron w_R by radiation kind
+- neutron_wr(E_MeV) -> energy dependent neutron w_R per ICRP 103
+- get_remainder_tissues_list() -> list of the 14 remainder tissues
+
+Design goals
+- Single source of truth: numbers live in JSON and are validated by pydantic.
+- Immutable API surface so other modules do not need to change.
+- Clear physics comments and tight input validation for neutron w_R.
 """
 
-from typing import Dict
+from __future__ import annotations
+
+from typing import Dict, List
+
+# Load canonical factors from the validated JSON model.
+# The loader in src.models is cached, so repeated calls are cheap.
+from src.models import (
+    get_tissue_factors_dict,
+    get_base_wr_dict,
+    get_remainder_tissues_list as _json_remainder_list,
+)
+
 
 # ------------------------------
-#  Tissue weighting factors (w_T)
+# JSON backed factor tables
 # ------------------------------
-# Units: dimensionless
-# Sum of all weighting factors = 1.0
-# These represent reference person fractional contribution to overall stochastic risk.
 
-_TISSUE_WEIGHTING_FACTORS: Dict[str, float] = {
-    # 0.12 group
-    "red_bone_marrow": 0.12,
-    "colon": 0.12,
-    "lung": 0.12,
-    "stomach": 0.12,
-    "breast": 0.12,
-    "remainder_tissues": 0.12,  # combined fraction for 14 remainder tissues
+# These are plain dict or list snapshots taken at import time.
+# They remain constant for the process lifetime.
+_TISSUE_WEIGHTING_FACTORS: Dict[str, float] = get_tissue_factors_dict()
+_BASE_RADIATION_WEIGHTING_FACTORS: Dict[str, float] = get_base_wr_dict()
+_REMAINDER_TISSUES_LIST: List[str] = _json_remainder_list()
 
-    # 0.08 group
-    "gonads": 0.08,
 
-    # 0.04 group
-    "bladder": 0.04,
-    "oesophagus": 0.04,
-    "liver": 0.04,
-    "thyroid": 0.04,
-
-    # 0.01 group
-    "bone_surface": 0.01,
-    "brain": 0.01,
-    "salivary_glands": 0.01,
-    "skin": 0.01,
-}
-
-# Remainder tissues per ICRP 103 for documentation purposes
-_REMAINDER_TISSUES_LIST = [
-    "adrenals", "extrathoracic_region", "gall_bladder", "heart",
-    "kidneys", "lymphatic_nodes", "muscle", "oral_mucosa",
-    "pancreas", "prostate_or_uterus_cervix", "small_intestine",
-    "spleen", "thymus", "tonsils"
-]
-
-# ------------------------------------
-#  Base radiation weighting factors (w_R)
-# ------------------------------------
-# Units: dimensionless
-# Not including neutron energy-dependent case.
-
-_BASE_RADIATION_WEIGHTING_FACTORS: Dict[str, float] = {
-    "photon": 1.0,
-    "electron": 1.0,
-    "muon": 1.0,
-    "proton": 2.0,
-    "pion": 2.0,
-    "alpha": 20.0,
-    "heavy_ion": 20.0
-    # Neutrons handled separately via neutron_wr(E)
-}
-
-# -------------------------------------------------
-#  Public access functions for factors
-# -------------------------------------------------
 def get_tissue_factors() -> Dict[str, float]:
     """
-    Returns a copy of the ICRP 103 tissue weighting factors.
+    Return a shallow copy of ICRP 103 tissue weighting factors w_T.
 
-    :return: dict mapping tissue name to w_T
+    Units: dimensionless
+    The factors are validated by src.models to sum to 1.0 within tolerance.
     """
     return _TISSUE_WEIGHTING_FACTORS.copy()
 
+
 def get_base_wr() -> Dict[str, float]:
     """
-    Returns a copy of the base radiation weighting factors (excluding neutrons).
+    Return a shallow copy of base radiation weighting factors w_R
+    for non neutron radiation kinds.
 
-    :return: dict mapping radiation type to w_R
+    Units: dimensionless
     """
     return _BASE_RADIATION_WEIGHTING_FACTORS.copy()
 
+
+def get_remainder_tissues_list() -> List[str]:
+    """
+    Return a copy of the 14 remainder tissues that roll up under the
+    'remainder_tissues' bucket in ICRP 103.
+    """
+    return list(_REMAINDER_TISSUES_LIST)
+
+
 # -------------------------------------------------
-#  Neutron radiation weighting factor function
+# Neutron radiation weighting factor w_R(E)
 # -------------------------------------------------
+
 def neutron_wr(energy_MeV: float) -> float:
     """
-    Computes the energy-dependent radiation weighting factor w_R for neutrons
-    as defined in ICRP Publication 103 (2007).
+    Compute the neutron radiation weighting factor w_R as a function of energy E in MeV,
+    per ICRP Publication 103 piecewise definition. Natural logarithms are used.
 
-    The formula is piecewise, with E in MeV:
-    1) For E < 1 MeV:
-       w_R = 2.5 + 18.2 * exp(- (log(E))^2 / 6)
-    2) For 1 MeV <= E <= 50 MeV:
-       w_R = 5.0 + 17.0 * exp(- (log(E))^2 / 6)
-    3) For E > 50 MeV:
-       w_R = 2.5 + 3.25 * exp(- (log(0.04*E))^2 / 6)
+    Piecewise definition with E in MeV:
+      1) E < 1:
+         w_R = 2.5 + 18.2 * exp(- (ln(E))^2 / 6)
+      2) 1 <= E <= 50:
+         w_R = 5.0 + 17.0 * exp(- (ln(E))^2 / 6)
+      3) E > 50:
+         w_R = 2.5 + 3.25 * exp(- (ln(0.04 * E))^2 / 6)
 
-    :param energy_MeV: neutron energy in MeV (must be > 0)
-    :return: radiation weighting factor w_R (dimensionless)
-    :raises ValueError: if energy_MeV <= 0
+    Parameters
+    ----------
+    energy_MeV : float
+        Neutron energy in MeV. Must be greater than 0.
+
+    Returns
+    -------
+    float
+        Radiation weighting factor w_R for neutrons.
+
+    Raises
+    ------
+    ValueError
+        If energy_MeV <= 0.
     """
     import math
 
-    if energy_MeV <= 0:
-        raise ValueError("Neutron energy must be greater than zero (MeV).")
+    if energy_MeV <= 0.0:
+        raise ValueError("Neutron energy must be greater than zero in MeV.")
 
     lnE = math.log(energy_MeV)
 
@@ -120,11 +112,5 @@ def neutron_wr(energy_MeV: float) -> float:
     elif energy_MeV <= 50.0:
         return 5.0 + 17.0 * math.exp(- (lnE ** 2) / 6.0)
     else:
+        # Note the shift in the argument for the high energy branch
         return 2.5 + 3.25 * math.exp(- (math.log(0.04 * energy_MeV) ** 2) / 6.0)
-        
-def get_remainder_tissues_list():
-    """
-    Returns the list of the 14 remainder tissues per ICRP 103.
-    """
-    return list(_REMAINDER_TISSUES_LIST)
-
