@@ -20,7 +20,7 @@ Swagger docs:
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware  # <-- add this import
 
-from src.schemas import DoseRequest, DoseResponse,  EquivalentDoseResponse
+from src.schemas import DoseRequest, DoseResponse, EquivalentDoseResponse
 from src.services.dose_service import compute_effective_dose, compute_equivalent_dose, DoseComputationError
 from src.services.factors import get_tissue_factors, get_base_wr, neutron_wr
 
